@@ -21,6 +21,7 @@ import {
   Filler 
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
+import { useAuth } from '../context/AuthContext';
 import { feedService, blogService, adsService, contactService } from '../services/api';
 import './Dashboard.css';
 
@@ -38,32 +39,44 @@ ChartJS.register(
 const Dashboard = () => {
   const [totals, setTotals] = useState({ news: '...', blogs: '...', ads: '...', contacts: '...' });
   const [systemStatus, setSystemStatus] = useState({ status: 'checking', news_scheduler: 'checking' });
+  const { user } = useAuth();
 
   useEffect(() => {
     const fetchData = async () => {
+      // News Total
       try {
-        const [newsRes, blogRes, adsRes, healthRes] = await Promise.all([
-          feedService.getFeed({ q: 'all', limit: 1 }),
-          blogService.getAllBlogs({ limit: 1 }),
-          adsService.getAllAds({ limit: 1 }),
-          fetch('https://api.fhmnews.com/health').then(res => res.json())
-        ]);
+        const res = await feedService.getFeed({ q: 'all', limit: 1 });
+        setTotals(prev => ({ ...prev, news: (res.data.total || 0).toLocaleString() }));
+      } catch (e) { console.error("News fetch error", e); }
 
-        setTotals({
-          news: newsRes.data.total?.toLocaleString() || '0',
-          blogs: blogRes.data.total?.toLocaleString() || '0',
-          ads: adsRes.data.total?.toLocaleString() || '0',
-          contacts: '89' // Contacts requires auth, keeping as mock or omit
-        });
+      // Blogs Total
+      try {
+        const res = await blogService.getAllBlogs({ limit: 1 });
+        setTotals(prev => ({ ...prev, blogs: (res.data.total || 0).toLocaleString() }));
+      } catch (e) { console.error("Blogs fetch error", e); }
 
-        setSystemStatus(healthRes);
-      } catch (error) {
-        console.error('Error fetching dashboard data', error);
-      }
+      // Ads Total
+      try {
+        const res = await adsService.getAllAds({ limit: 1 });
+        setTotals(prev => ({ ...prev, ads: (res.data.total || 0).toLocaleString() }));
+      } catch (e) { console.error("Ads fetch error", e); }
+
+      // Contacts Total
+      try {
+        const res = await contactService.getAllContacts(user?.token);
+        const count = (Array.isArray(res.data) ? res.data : (res.data.data || [])).length;
+        setTotals(prev => ({ ...prev, contacts: count.toLocaleString() }));
+      } catch (e) { console.error("Contacts fetch error", e); }
+
+      // Health Check
+      try {
+        const res = await fetch('https://api.fhmnews.com/health').then(r => r.json());
+        setSystemStatus(res);
+      } catch (e) { console.error("Health check error", e); }
     };
 
-    fetchData();
-  }, []);
+    if (user) fetchData();
+  }, [user]);
 
   const stats = [
     { title: 'Total News', value: totals.news, icon: <Rss />, change: '+12%', positive: true },

@@ -4,6 +4,8 @@ import { adsService } from '../services/api';
 import DataTable from '../components/DataTable';
 import { toast } from 'react-toastify';
 
+import Modal from '../components/Modal';
+
 const Ads = () => {
   const [ads, setAds] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -157,78 +159,72 @@ const Ads = () => {
         onDelete={handleDeleteAd}
       />
 
-      {isModalOpen && (
-        <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
-          <div className="modal-content animate-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Create New Advertisement</h3>
-              <button className="close-btn" onClick={() => setIsModalOpen(false)}>
-                <X size={20} />
-              </button>
-            </div>
-            <div className="modal-body">
-              <form onSubmit={handleCreateAd} className="modal-form">
-                <div className="alert-box">
-                  <AlertCircle size={16} />
-                  <span>Backend only accepts real URLs (http/https). Base64 images are not supported.</span>
-                </div>
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title="Create New Advertisement"
+      >
+        <form onSubmit={handleCreateAd} className="modal-form">
+          <div className="alert-box">
+            <AlertCircle size={16} />
+            <span>Backend only accepts real URLs (http/https). Base64 images are not supported.</span>
+          </div>
 
-                <div className="form-row">
-                  <div className="form-group form-group-full">
-                    <label>Image URL</label>
-                    <input
-                      type="text"
-                      placeholder="https://example.com/banner.jpg"
-                      value={newAd.image_link}
-                      onChange={(e) => setNewAd({ ...newAd, image_link: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="form-group form-group-full">
-                    <label>Destination Link</label>
-                    <input
-                      type="text"
-                      placeholder="https://sponsor-website.com"
-                      value={newAd.visit_link}
-                      onChange={(e) => setNewAd({ ...newAd, visit_link: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Ad Type</label>
-                    <select
-                      value={newAd.ads_type}
-                      onChange={(e) => setNewAd({ ...newAd, ads_type: e.target.value })}
-                    >
-                      <option value="top">Top Banner</option>
-                      <option value="sidebar">Sidebar</option>
-                      <option value="middle">In-Content</option>
-                      <option value="bottom">Bottom</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label>Status</label>
-                    <select
-                      value={newAd.status}
-                      onChange={(e) => setNewAd({ ...newAd, status: e.target.value })}
-                    >
-                      <option value="active">Active</option>
-                      <option value="inactive">Inactive</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="form-footer">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="btn-cancel">Cancel</button>
-                  <button type="submit" className="btn-submit">
-                    <Send size={16} />
-                    <span>Create Ad</span>
-                  </button>
-                </div>
-              </form>
+          <div className="form-row">
+            <div className="form-group form-group-full">
+              <label>Image URL</label>
+              <input
+                type="text"
+                placeholder="https://example.com/banner.jpg"
+                value={newAd.image_link}
+                onChange={(e) => setNewAd({ ...newAd, image_link: e.target.value })}
+                required
+              />
+            </div>
+            <div className="form-group form-group-full">
+              <label>Destination Link</label>
+              <input
+                type="text"
+                placeholder="https://sponsor-website.com"
+                value={newAd.visit_link}
+                onChange={(e) => setNewAd({ ...newAd, visit_link: e.target.value })}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>Ad Type</label>
+              <select
+                value={newAd.ads_type}
+                onChange={(e) => setNewAd({ ...newAd, ads_type: e.target.value })}
+              >
+                <option value="top">Top Banner</option>
+                <option value="left">Left Sidebar</option>
+                <option value="right">Right Sidebar</option>
+                <option value="popup">Popup</option>
+                <option value="horizontal">Horizontal</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Status</label>
+              <select
+                value={newAd.status}
+                onChange={(e) => setNewAd({ ...newAd, status: e.target.value })}
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="paused">Paused</option>
+              </select>
             </div>
           </div>
-        </div>
-      )}
+          <div className="modal-footer" style={{ padding: '1.25rem 0 0 0', background: 'transparent', border: 'none' }}>
+            <button type="button" onClick={() => setIsModalOpen(false)} className="btn-cancel">Cancel</button>
+            <button type="submit" className="btn-submit">
+              <Send size={16} />
+              <span>Create Ad</span>
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       <style dangerouslySetInnerHTML={{
         __html: `
@@ -239,6 +235,7 @@ const Ads = () => {
         .status-pill { padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.75rem; font-weight: 600; text-transform: capitalize; }
         .status-pill.active { background: rgba(16, 185, 129, 0.1); color: var(--accent); }
         .status-pill.inactive { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+        .status-pill.paused { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
         .toggle-status-btn { background: none; border: none; cursor: pointer; padding: 0.25rem; display: flex; align-items: center; transition: var(--transition); }
         .toggle-status-btn:hover { transform: scale(1.1); }
       `}} />

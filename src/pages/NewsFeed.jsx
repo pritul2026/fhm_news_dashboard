@@ -4,11 +4,14 @@ import { feedService } from '../services/api';
 import DataTable from '../components/DataTable';
 import { toast } from 'react-toastify';
 
+import Modal from '../components/Modal';
+
 const NewsFeed = () => {
   const [news, setNews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isFetchModalOpen, setIsFetchModalOpen] = useState(false);
 
   const [newPost, setNewPost] = useState({
     title: '',
@@ -19,6 +22,14 @@ const NewsFeed = () => {
     categories: '',
     source_name: 'FHM News Admin',
     author_name: 'Admin'
+  });
+
+  const [fetchParams, setFetchParams] = useState({
+    categories: 'sports',
+    search: 'ipl',
+    published_on: new Date().toISOString().split('T')[0],
+    language: 'en',
+    limit: 15
   });
 
   const fetchNews = async () => {
@@ -43,6 +54,18 @@ const NewsFeed = () => {
 
   const handleCreatePost = async (e) => {
     e.preventDefault();
+    if (newPost.title.length < 3) {
+      toast.warning('Title must be at least 3 characters');
+      return;
+    }
+    if (newPost.excerpt.length < 10) {
+      toast.warning('Excerpt must be at least 10 characters');
+      return;
+    }
+    if (newPost.content.length < 20) {
+      toast.warning('Content must be at least 20 characters');
+      return;
+    }
     if (!validateURL(newPost.source_url)) {
       toast.error('Source URL must start with http:// or https://');
       return;
@@ -66,6 +89,19 @@ const NewsFeed = () => {
       const detail = error.response?.data?.detail;
       const msg = Array.isArray(detail) ? detail[0]?.msg : (detail || 'Server error');
       toast.error(`Error: ${msg}`);
+    }
+  };
+
+  const handleFetchSubmit = async (e) => {
+    e.preventDefault();
+    toast.info('Fetching from External API...');
+    try {
+      const response = await feedService.fetchCustom(fetchParams);
+      toast.success('API items fetched and saved!');
+      setIsFetchModalOpen(false);
+      fetchNews();
+    } catch (error) {
+      toast.error('Failed to fetch from API');
     }
   };
 
@@ -140,6 +176,10 @@ const NewsFeed = () => {
           <p>Manage and monitor all incoming news articles.</p>
         </div>
         <div className="header-actions">
+          <button onClick={() => setIsFetchModalOpen(true)} className="refresh-btn" style={{ background: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.2)', color: '#10b981' }}>
+            <Send size={16} />
+            <span>Fetch from API</span>
+          </button>
           <button onClick={handleRefresh} className="refresh-btn">
             <RefreshCw size={16} />
             <span>Sync Feed</span>
@@ -177,121 +217,201 @@ const NewsFeed = () => {
         onEdit={(row) => toast.info(`Editing: ${row.title}`)}
       />
 
-      {isModalOpen && (
-        <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
-          <div className="modal-content animate-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Create New News Post</h3>
-              <button className="close-btn" onClick={() => setIsModalOpen(false)}>
-                <X size={20} />
-              </button>
+      {/* Manual Creation Modal */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title="Create New News Post"
+        size="large"
+      >
+        <form onSubmit={handleCreatePost} className="modal-form">
+          <div className="alert-box">
+            <AlertCircle size={15} />
+            <span>All URL fields must start with <strong>http://</strong> or <strong>https://</strong>. Categories are comma-separated.</span>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group form-group-full">
+              <label>Article Title (Min 3)</label>
+              <input
+                type="text"
+                placeholder="Breaking: India launches new space mission..."
+                value={newPost.title}
+                onChange={(e) => setNewPost({ ...newPost, title: e.target.value })}
+                required
+              />
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <small style={{ color: newPost.title.length < 3 ? '#ef4444' : '#10b981', fontWeight: 600 }}>
+                  {newPost.title.length} / 3
+                </small>
+              </div>
             </div>
-            <div className="modal-body">
-              <form onSubmit={handleCreatePost} className="modal-form">
-                <div className="alert-box">
-                  <AlertCircle size={15} />
-                  <span>All URL fields must start with <strong>http://</strong> or <strong>https://</strong>. Categories are comma-separated.</span>
-                </div>
 
-                <div className="form-row">
-                  <div className="form-group form-group-full">
-                    <label>Article Title</label>
-                    <input
-                      type="text"
-                      placeholder="Breaking: India launches new space mission..."
-                      value={newPost.title}
-                      onChange={(e) => setNewPost({ ...newPost, title: e.target.value })}
-                      required
-                    />
-                  </div>
+            <div className="form-group form-group-full">
+              <label>Source URL</label>
+              <input
+                type="text"
+                placeholder="https://example.com/article"
+                value={newPost.source_url}
+                onChange={(e) => setNewPost({ ...newPost, source_url: e.target.value })}
+                required
+              />
+            </div>
 
-                  <div className="form-group form-group-full">
-                    <label>Source URL</label>
-                    <input
-                      type="text"
-                      placeholder="https://example.com/article"
-                      value={newPost.source_url}
-                      onChange={(e) => setNewPost({ ...newPost, source_url: e.target.value })}
-                      required
-                    />
-                  </div>
+            <div className="form-group">
+              <label>Author Name</label>
+              <input
+                type="text"
+                value={newPost.author_name}
+                onChange={(e) => setNewPost({ ...newPost, author_name: e.target.value })}
+                required
+              />
+            </div>
 
-                  <div className="form-group">
-                    <label>Author Name</label>
-                    <input
-                      type="text"
-                      value={newPost.author_name}
-                      onChange={(e) => setNewPost({ ...newPost, author_name: e.target.value })}
-                      required
-                    />
-                  </div>
+            <div className="form-group">
+              <label>Source Name</label>
+              <input
+                type="text"
+                value={newPost.source_name}
+                onChange={(e) => setNewPost({ ...newPost, source_name: e.target.value })}
+                required
+              />
+            </div>
 
-                  <div className="form-group">
-                    <label>Source Name</label>
-                    <input
-                      type="text"
-                      value={newPost.source_name}
-                      onChange={(e) => setNewPost({ ...newPost, source_name: e.target.value })}
-                      required
-                    />
-                  </div>
+            <div className="form-group form-group-full">
+              <label>Image URL</label>
+              <input
+                type="text"
+                placeholder="https://example.com/image.jpg"
+                value={newPost.imageSrc}
+                onChange={(e) => setNewPost({ ...newPost, imageSrc: e.target.value })}
+              />
+            </div>
 
-                  <div className="form-group form-group-full">
-                    <label>Image URL</label>
-                    <input
-                      type="text"
-                      placeholder="https://example.com/image.jpg"
-                      value={newPost.imageSrc}
-                      onChange={(e) => setNewPost({ ...newPost, imageSrc: e.target.value })}
-                    />
-                  </div>
+            <div className="form-group form-group-full">
+              <label>Categories (comma separated)</label>
+              <input
+                type="text"
+                placeholder="india, science, space"
+                value={newPost.categories}
+                onChange={(e) => setNewPost({ ...newPost, categories: e.target.value })}
+                required
+              />
+            </div>
 
-                  <div className="form-group form-group-full">
-                    <label>Categories (comma separated)</label>
-                    <input
-                      type="text"
-                      placeholder="india, science, space"
-                      value={newPost.categories}
-                      onChange={(e) => setNewPost({ ...newPost, categories: e.target.value })}
-                      required
-                    />
-                  </div>
+            <div className="form-group form-group-full">
+              <label>Excerpt (Min 10)</label>
+              <textarea
+                rows="2"
+                placeholder="Short summary of the article..."
+                value={newPost.excerpt}
+                onChange={(e) => setNewPost({ ...newPost, excerpt: e.target.value })}
+                required
+              />
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <small style={{ color: newPost.excerpt.length < 10 ? '#ef4444' : '#10b981', fontWeight: 600 }}>
+                  {newPost.excerpt.length} / 10
+                </small>
+              </div>
+            </div>
 
-                  <div className="form-group form-group-full">
-                    <label>Excerpt</label>
-                    <textarea
-                      rows="2"
-                      placeholder="Short summary of the article..."
-                      value={newPost.excerpt}
-                      onChange={(e) => setNewPost({ ...newPost, excerpt: e.target.value })}
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group form-group-full">
-                    <label>Full Content</label>
-                    <textarea
-                      rows="5"
-                      placeholder="Full article body..."
-                      value={newPost.content}
-                      onChange={(e) => setNewPost({ ...newPost, content: e.target.value })}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="form-footer">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="btn-cancel">Cancel</button>
-                  <button type="submit" className="btn-submit">
-                    <Send size={15} />
-                    <span>Publish Post</span>
-                  </button>
-                </div>
-              </form>
+            <div className="form-group form-group-full">
+              <label>Full Content (Min 20)</label>
+              <textarea
+                rows="5"
+                placeholder="Full article body..."
+                value={newPost.content}
+                onChange={(e) => setNewPost({ ...newPost, content: e.target.value })}
+                required
+              />
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <small style={{ color: newPost.content.length < 20 ? '#ef4444' : '#10b981', fontWeight: 600 }}>
+                  {newPost.content.length} / 20
+                </small>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+
+          <div className="modal-footer" style={{ padding: '1.25rem 0 0 0', background: 'transparent', border: 'none' }}>
+            <button type="button" onClick={() => setIsModalOpen(false)} className="btn-cancel">Cancel</button>
+            <button type="submit" className="btn-submit">
+              <Send size={15} />
+              <span>Publish Post</span>
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Fetch from External API Modal */}
+      <Modal
+        isOpen={isFetchModalOpen}
+        onClose={() => setIsFetchModalOpen(false)}
+        title="Fetch News from External API"
+      >
+        <form onSubmit={handleFetchSubmit} className="modal-form">
+          <div className="alert-box" style={{ background: 'rgba(16, 185, 129, 0.08)', borderColor: 'rgba(16, 185, 129, 0.2)', color: '#10b981' }}>
+            <Send size={15} />
+            <span>This will fetch news from the external API and save them to your database.</span>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label>Category</label>
+              <input
+                type="text"
+                value={fetchParams.categories}
+                onChange={(e) => setFetchParams({ ...fetchParams, categories: e.target.value })}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>Search Query</label>
+              <input
+                type="text"
+                value={fetchParams.search}
+                onChange={(e) => setFetchParams({ ...fetchParams, search: e.target.value })}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>Published On</label>
+              <input
+                type="date"
+                value={fetchParams.published_on}
+                onChange={(e) => setFetchParams({ ...fetchParams, published_on: e.target.value })}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>Language</label>
+              <select
+                value={fetchParams.language}
+                onChange={(e) => setFetchParams({ ...fetchParams, language: e.target.value })}
+              >
+                <option value="en">English</option>
+                <option value="hi">Hindi</option>
+              </select>
+            </div>
+            <div className="form-group form-group-full">
+              <label>Result Limit</label>
+              <input
+                type="number"
+                value={fetchParams.limit}
+                onChange={(e) => setFetchParams({ ...fetchParams, limit: parseInt(e.target.value) })}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="modal-footer" style={{ padding: '1.25rem 0 0 0', background: 'transparent', border: 'none' }}>
+            <button type="button" onClick={() => setIsFetchModalOpen(false)} className="btn-cancel">Cancel</button>
+            <button type="submit" className="btn-submit" style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', boxShadow: '0 10px 20px -5px rgba(16, 185, 129, 0.4)' }}>
+              <Send size={15} />
+              <span>Fetch News</span>
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       <style dangerouslySetInnerHTML={{ __html: `
         .header-actions { display: flex; gap: 1rem; align-items: center; }

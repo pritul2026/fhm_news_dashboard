@@ -14,7 +14,7 @@ export const feedService = {
   getFeed: (params) => api.get('/feed/', { params }),
   getArticleBySlug: (slug) => api.get(`/feed/slug/${slug}/`),
   createPost: (data) => api.post('/feed/', data),
-  fetchCustom: (data) => api.post('/feed/fetch/', data),
+  fetchCustom: (data) => api.post('/feed/fetch', data),
   triggerRefresh: (pages = 5) => api.post(`/feed/refresh/?pages=${pages}`),
   deleteBySlug: (slug) => api.delete(`/feed/slug/${slug}/`),
 };
