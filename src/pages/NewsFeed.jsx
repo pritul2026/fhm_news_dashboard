@@ -32,6 +32,8 @@ const NewsFeed = () => {
     limit: 15
   });
 
+  const [fetchResult, setFetchResult] = useState(null);
+
   const fetchNews = async () => {
     setLoading(true);
     try {
@@ -94,14 +96,17 @@ const NewsFeed = () => {
 
   const handleFetchSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
     toast.info('Fetching from External API...');
     try {
       const response = await feedService.fetchCustom(fetchParams);
-      toast.success('API items fetched and saved!');
-      setIsFetchModalOpen(false);
+      setFetchResult(response.data);
+      toast.success('Fetch completed!');
       fetchNews();
     } catch (error) {
       toast.error('Failed to fetch from API');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -345,73 +350,129 @@ const NewsFeed = () => {
       {/* Fetch from External API Modal */}
       <Modal
         isOpen={isFetchModalOpen}
-        onClose={() => setIsFetchModalOpen(false)}
+        onClose={() => {
+          setIsFetchModalOpen(false);
+          setFetchResult(null);
+        }}
         title="Fetch News from External API"
       >
-        <form onSubmit={handleFetchSubmit} className="modal-form">
-          <div className="alert-box" style={{ background: 'rgba(16, 185, 129, 0.08)', borderColor: 'rgba(16, 185, 129, 0.2)', color: '#10b981' }}>
-            <Send size={15} />
-            <span>This will fetch news from the external API and save them to your database.</span>
-          </div>
-
-          <div className="form-row">
-            <div className="form-group">
-              <label>Category</label>
-              <input
-                type="text"
-                value={fetchParams.categories}
-                onChange={(e) => setFetchParams({ ...fetchParams, categories: e.target.value })}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label>Search Query</label>
-              <input
-                type="text"
-                value={fetchParams.search}
-                onChange={(e) => setFetchParams({ ...fetchParams, search: e.target.value })}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label>Published On</label>
-              <input
-                type="date"
-                value={fetchParams.published_on}
-                onChange={(e) => setFetchParams({ ...fetchParams, published_on: e.target.value })}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label>Language</label>
-              <select
-                value={fetchParams.language}
-                onChange={(e) => setFetchParams({ ...fetchParams, language: e.target.value })}
-              >
-                <option value="en">English</option>
-                <option value="hi">Hindi</option>
-              </select>
-            </div>
-            <div className="form-group form-group-full">
-              <label>Result Limit</label>
-              <input
-                type="number"
-                value={fetchParams.limit}
-                onChange={(e) => setFetchParams({ ...fetchParams, limit: parseInt(e.target.value) })}
-                required
-              />
-            </div>
-          </div>
-
-          <div className="modal-footer" style={{ padding: '1.25rem 0 0 0', background: 'transparent', border: 'none' }}>
-            <button type="button" onClick={() => setIsFetchModalOpen(false)} className="btn-cancel">Cancel</button>
-            <button type="submit" className="btn-submit" style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', boxShadow: '0 10px 20px -5px rgba(16, 185, 129, 0.4)' }}>
+        {!fetchResult ? (
+          <form onSubmit={handleFetchSubmit} className="modal-form">
+            <div className="alert-box" style={{ background: 'rgba(16, 185, 129, 0.08)', borderColor: 'rgba(16, 185, 129, 0.2)', color: '#10b981' }}>
               <Send size={15} />
-              <span>Fetch News</span>
-            </button>
+              <span>This will fetch news from the external API and save them to your database.</span>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label>Category</label>
+                <input
+                  type="text"
+                  value={fetchParams.categories}
+                  onChange={(e) => setFetchParams({ ...fetchParams, categories: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Search Query</label>
+                <input
+                  type="text"
+                  value={fetchParams.search}
+                  onChange={(e) => setFetchParams({ ...fetchParams, search: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Published On</label>
+                <input
+                  type="date"
+                  value={fetchParams.published_on}
+                  onChange={(e) => setFetchParams({ ...fetchParams, published_on: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Language</label>
+                <select
+                  value={fetchParams.language}
+                  onChange={(e) => setFetchParams({ ...fetchParams, language: e.target.value })}
+                >
+                  <option value="en">English</option>
+                  <option value="hi">Hindi</option>
+                </select>
+              </div>
+              <div className="form-group form-group-full">
+                <label>Result Limit</label>
+                <input
+                  type="number"
+                  value={fetchParams.limit}
+                  onChange={(e) => setFetchParams({ ...fetchParams, limit: parseInt(e.target.value) })}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="modal-footer" style={{ padding: '1.25rem 0 0 0', background: 'transparent', border: 'none' }}>
+              <button type="button" onClick={() => setIsFetchModalOpen(false)} className="btn-cancel">Cancel</button>
+              <button type="submit" disabled={loading} className="btn-submit" style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', boxShadow: '0 10px 20px -5px rgba(16, 185, 129, 0.4)' }}>
+                <Send size={15} />
+                <span>{loading ? 'Fetching...' : 'Fetch News'}</span>
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div className="fetch-results animate-fade-in">
+            <div className="result-header">
+              <div className="result-icon-success">
+                <AlertCircle size={32} />
+              </div>
+              <h3>Fetch Completed Successfully</h3>
+              <p>{fetchResult.message}</p>
+            </div>
+
+            <div className="result-stats-grid">
+              <div className="res-stat-card">
+                <span>Inserted</span>
+                <h4 style={{ color: '#10b981' }}>{fetchResult.inserted}</h4>
+              </div>
+              <div className="res-stat-card">
+                <span>Skipped</span>
+                <h4 style={{ color: '#f59e0b' }}>{fetchResult.skipped}</h4>
+              </div>
+              <div className="res-stat-card">
+                <span>Total Fetched</span>
+                <h4>{fetchResult.total_fetched}</h4>
+              </div>
+            </div>
+
+            {fetchResult.categories_seen?.length > 0 && (
+              <div className="res-categories">
+                <label>Categories Seen:</label>
+                <div className="res-cat-tags">
+                  {fetchResult.categories_seen.map((cat, i) => (
+                    <span key={i} className="res-cat-tag">{cat}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="modal-footer" style={{ padding: '1.5rem 0 0 0', background: 'transparent', border: 'none' }}>
+              <button 
+                type="button" 
+                onClick={() => {
+                  setIsFetchModalOpen(false);
+                  setFetchResult(null);
+                }} 
+                className="btn-submit"
+                style={{ width: '100%', justifyContent: 'center' }}
+              >
+                Done
+              </button>
+            </div>
           </div>
-        </form>
+        )}
       </Modal>
+
 
       <style dangerouslySetInnerHTML={{ __html: `
         .header-actions { display: flex; gap: 1rem; align-items: center; }
@@ -428,6 +489,36 @@ const NewsFeed = () => {
           transition: var(--transition);
         }
         .refresh-btn:hover { background: rgba(255, 255, 255, 0.1); }
+
+        /* Fetch Results Styling */
+        .fetch-results { padding: 1rem 0; }
+        .result-header { text-align: center; margin-bottom: 2rem; }
+        .result-icon-success { 
+          width: 64px; height: 64px; background: rgba(16, 185, 129, 0.1); 
+          color: #10b981; border-radius: 50%; display: flex; 
+          align-items: center; justify-content: center; margin: 0 auto 1rem;
+        }
+        .result-header h3 { font-size: 1.25rem; margin-bottom: 0.5rem; color: var(--text-main); }
+        .result-header p { font-size: 0.9rem; color: var(--text-dim); }
+
+        .result-stats-grid { 
+          display: grid; grid-template-columns: repeat(3, 1fr); 
+          gap: 1rem; margin-bottom: 2rem; 
+        }
+        .res-stat-card { 
+          background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); 
+          padding: 1rem; border-radius: var(--radius-md); text-align: center;
+        }
+        .res-stat-card span { font-size: 0.75rem; color: var(--text-dim); display: block; margin-bottom: 0.5rem; }
+        .res-stat-card h4 { font-size: 1.5rem; font-weight: 700; }
+
+        .res-categories { margin-bottom: 1rem; }
+        .res-categories label { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 0.75rem; display: block; }
+        .res-cat-tags { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .res-cat-tag { 
+          padding: 0.3rem 0.75rem; background: rgba(59, 130, 246, 0.1); 
+          color: #60a5fa; border-radius: 20px; font-size: 0.75rem; font-weight: 600; 
+        }
       `}} />
     </div>
   );
