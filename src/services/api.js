@@ -12,8 +12,11 @@ const api = axios.create({
 // Feed APIs
 export const feedService = {
   getFeed: (params) => api.get('/feed/', { params }),
+  filterNews: (params) => api.get('/feed/filter', { params }),
+  getCategories: () => api.get('/feed/categories'), // New Categories API
   getArticleBySlug: (slug) => api.get(`/feed/slug/${slug}/`),
   createPost: (data) => api.post('/feed/', data),
+  updatePost: (slug, data) => api.put(`/feed/${slug}`, data),
   fetchCustom: (data) => api.post('/feed/fetch', data),
   triggerRefresh: (pages = 5) => api.post(`/feed/refresh/?pages=${pages}`),
   deleteBySlug: (slug) => api.delete(`/feed/slug/${slug}/`),

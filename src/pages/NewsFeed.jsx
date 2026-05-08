@@ -12,6 +12,21 @@ const NewsFeed = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isFetchModalOpen, setIsFetchModalOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingSlug, setEditingSlug] = useState('');
+  const [categoriesList, setCategoriesList] = useState(['all']);
+  
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const itemsPerPage = 15;
+
+  const [filters, setFilters] = useState({
+    category: 'all',
+    start_date: '',
+    end_date: '',
+    q: ''
+  });
 
   const [newPost, setNewPost] = useState({
     title: '',
@@ -37,7 +52,29 @@ const NewsFeed = () => {
   const fetchNews = async () => {
     setLoading(true);
     try {
-      const response = await feedService.getFeed({ q: 'all', limit: 50 });
+      let response;
+      const hasFilters = filters.category !== 'all' || filters.start_date || filters.end_date || filters.q;
+      
+      if (hasFilters) {
+        response = await feedService.filterNews({
+          category: filters.category === 'all' ? undefined : filters.category,
+          start_date: filters.start_date || undefined,
+          end_date: filters.end_date || undefined,
+          q: filters.q || undefined,
+          page: currentPage,
+          limit: itemsPerPage
+        });
+        setTotalPages(response.data.total_pages || 1);
+      } else {
+        response = await feedService.getFeed({ 
+          q: 'all', 
+          page: currentPage, 
+          limit: itemsPerPage 
+        });
+        // Calculate total pages for getFeed if not provided
+        const total = response.data.total || 0;
+        setTotalPages(Math.ceil(total / itemsPerPage) || 1);
+      }
       setNews(response.data.response || []);
     } catch (error) {
       toast.error('Failed to fetch news feed');
@@ -46,16 +83,31 @@ const NewsFeed = () => {
     }
   };
 
+  const loadCategories = async () => {
+    try {
+      const res = await feedService.getCategories(); 
+      setCategoriesList(res.data.categories || ['all']);
+    } catch (e) {
+      console.error("Error loading categories", e);
+    }
+  };
+
   useEffect(() => {
     fetchNews();
+  }, [currentPage]);
+
+  useEffect(() => {
+    loadCategories();
   }, []);
 
   const validateURL = (url) => {
     return url && (url.startsWith('http://') || url.startsWith('https://'));
   };
 
-  const handleCreatePost = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validation
     if (newPost.title.length < 3) {
       toast.warning('Title must be at least 3 characters');
       return;
@@ -72,26 +124,50 @@ const NewsFeed = () => {
       toast.error('Source URL must start with http:// or https://');
       return;
     }
-    if (newPost.imageSrc && !validateURL(newPost.imageSrc)) {
-      toast.error('Image URL must start with http:// or https://');
-      return;
-    }
-    const categoriesArray = newPost.categories.split(',').map(c => c.trim()).filter(Boolean);
-    if (categoriesArray.length === 0) {
-      toast.warning('Please add at least one category');
-      return;
-    }
+
+    const categoriesArray = typeof newPost.categories === 'string' 
+      ? newPost.categories.split(',').map(c => c.trim()).filter(Boolean)
+      : newPost.categories;
+
     try {
-      await feedService.createPost({ ...newPost, categories: categoriesArray });
-      toast.success('News article created successfully');
+      if (isEditMode) {
+        await feedService.updatePost(editingSlug, { ...newPost, categories: categoriesArray });
+        toast.success('News article updated successfully');
+      } else {
+        await feedService.createPost({ ...newPost, categories: categoriesArray });
+        toast.success('News article created successfully');
+      }
+      
       setIsModalOpen(false);
-      setNewPost({ title: '', source_url: '', excerpt: '', content: '', imageSrc: '', categories: '', source_name: 'FHM News Admin', author_name: 'Admin' });
+      resetForm();
       fetchNews();
     } catch (error) {
       const detail = error.response?.data?.detail;
       const msg = Array.isArray(detail) ? detail[0]?.msg : (detail || 'Server error');
       toast.error(`Error: ${msg}`);
     }
+  };
+
+  const resetForm = () => {
+    setNewPost({ title: '', source_url: '', excerpt: '', content: '', imageSrc: '', categories: '', source_name: 'FHM News Admin', author_name: 'Admin' });
+    setIsEditMode(false);
+    setEditingSlug('');
+  };
+
+  const handleEdit = (row) => {
+    setIsEditMode(true);
+    setEditingSlug(row.slug);
+    setNewPost({
+      title: row.title || '',
+      source_url: row.source_url || '',
+      excerpt: row.excerpt || '',
+      content: row.content || '',
+      imageSrc: row.imageSrc || '',
+      categories: Array.isArray(row.categories) ? row.categories.join(', ') : (row.categories || ''),
+      source_name: row.author?.source_name || 'FHM News Admin',
+      author_name: row.author?.author_name || 'Admin'
+    });
+    setIsModalOpen(true);
   };
 
   const handleFetchSubmit = async (e) => {
@@ -200,39 +276,127 @@ const NewsFeed = () => {
         </div>
       </header>
 
-      <div className="table-controls glass">
-        <div className="page-search-box">
-          <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" style={{ color: 'var(--text-dim)', flexShrink: 0 }}>
-            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-          </svg>
-          <input
-            type="text"
-            placeholder="Search articles..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+      <div className="table-controls glass filter-bar">
+        <div className="filter-group">
+          <div className="page-search-box">
+            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" style={{ color: 'var(--text-dim)', flexShrink: 0 }}>
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+            <input
+              type="text"
+              placeholder="Search title/excerpt..."
+              value={filters.q}
+              onChange={(e) => setFilters({ ...filters, q: e.target.value })}
+            />
+          </div>
+        </div>
+
+        <div className="filter-group">
+          <select 
+            className="filter-select"
+            value={filters.category}
+            onChange={(e) => setFilters({ ...filters, category: e.target.value })}
+          >
+            {categoriesList.map(cat => (
+              <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="filter-group date-filters">
+          <input 
+            type="date" 
+            className="filter-date"
+            value={filters.start_date}
+            onChange={(e) => setFilters({ ...filters, start_date: e.target.value })}
           />
+          <span className="date-sep">to</span>
+          <input 
+            type="date" 
+            className="filter-date"
+            value={filters.end_date}
+            onChange={(e) => setFilters({ ...filters, end_date: e.target.value })}
+          />
+        </div>
+
+        <div className="filter-actions">
+          <button onClick={fetchNews} className="btn-filter-apply">Apply</button>
+          <button onClick={() => {
+            setFilters({ category: 'all', start_date: '', end_date: '', q: '' });
+            setTimeout(() => fetchNews(), 0);
+          }} className="btn-filter-reset">Reset</button>
         </div>
       </div>
 
       <DataTable
         columns={columns}
-        data={filtered}
+        data={news}
         loading={loading}
         onDelete={handleDelete}
-        onEdit={(row) => toast.info(`Editing: ${row.title}`)}
+        onEdit={handleEdit}
       />
 
-      {/* Manual Creation Modal */}
+      {/* Pagination Controls */}
+      {!loading && totalPages > 1 && (
+        <div className="pagination-wrapper glass">
+          <button 
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage(prev => prev - 1)}
+            className="pagination-btn"
+          >
+            Previous
+          </button>
+          
+          <div className="pagination-numbers">
+            {[...Array(totalPages)].map((_, i) => {
+              const pageNum = i + 1;
+              // Show only current, first, last, and neighbors
+              if (
+                pageNum === 1 || 
+                pageNum === totalPages || 
+                (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
+              ) {
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`pagination-num ${currentPage === pageNum ? 'active' : ''}`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              }
+              if (pageNum === currentPage - 2 || pageNum === currentPage + 2) {
+                return <span key={pageNum} className="pagination-ellipsis">...</span>;
+              }
+              return null;
+            })}
+          </div>
+
+          <button 
+            disabled={currentPage === totalPages}
+            onClick={() => setCurrentPage(prev => prev + 1)}
+            className="pagination-btn"
+          >
+            Next
+          </button>
+        </div>
+      )}
+
+      {/* Manual Creation/Edit Modal */}
       <Modal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title="Create New News Post"
+        onClose={() => {
+          setIsModalOpen(false);
+          resetForm();
+        }}
+        title={isEditMode ? "Edit News Article" : "Create New News Post"}
         size="large"
       >
-        <form onSubmit={handleCreatePost} className="modal-form">
+        <form onSubmit={handleSubmit} className="modal-form">
           <div className="alert-box">
             <AlertCircle size={15} />
-            <span>All URL fields must start with <strong>http://</strong> or <strong>https://</strong>. Categories are comma-separated.</span>
+            <span>{isEditMode ? "Updating this article will clear its cache." : "All URL fields must start with http:// or https://."} Categories are comma-separated.</span>
           </div>
 
           <div className="form-row">
@@ -338,10 +502,10 @@ const NewsFeed = () => {
           </div>
 
           <div className="modal-footer" style={{ padding: '1.25rem 0 0 0', background: 'transparent', border: 'none' }}>
-            <button type="button" onClick={() => setIsModalOpen(false)} className="btn-cancel">Cancel</button>
+            <button type="button" onClick={() => { setIsModalOpen(false); resetForm(); }} className="btn-cancel">Cancel</button>
             <button type="submit" className="btn-submit">
               <Send size={15} />
-              <span>Publish Post</span>
+              <span>{isEditMode ? "Update Article" : "Publish Post"}</span>
             </button>
           </div>
         </form>
@@ -473,7 +637,6 @@ const NewsFeed = () => {
         )}
       </Modal>
 
-
       <style dangerouslySetInnerHTML={{ __html: `
         .header-actions { display: flex; gap: 1rem; align-items: center; }
         .refresh-btn {
@@ -490,7 +653,84 @@ const NewsFeed = () => {
         }
         .refresh-btn:hover { background: rgba(255, 255, 255, 0.1); }
 
-        /* Fetch Results Styling */
+        .filter-bar {
+          display: flex;
+          gap: 1rem;
+          padding: 1rem 1.5rem;
+          margin-bottom: 2rem;
+          align-items: center;
+          flex-wrap: wrap;
+        }
+        .filter-group { display: flex; align-items: center; gap: 0.5rem; }
+        .filter-select, .filter-date {
+          background: rgba(255,255,255,0.05);
+          border: 1px solid var(--border);
+          color: var(--text-main);
+          padding: 0.6rem 1rem;
+          border-radius: var(--radius-md);
+          outline: none;
+        }
+        .filter-select option { background: #1e293b; color: white; }
+        .date-filters { display: flex; align-items: center; gap: 0.5rem; }
+        .date-sep { font-size: 0.8rem; color: var(--text-dim); }
+        .filter-actions { display: flex; gap: 0.5rem; margin-left: auto; }
+        .btn-filter-apply { 
+          padding: 0.6rem 1.5rem; background: var(--primary); color: white; 
+          border: none; border-radius: var(--radius-md); cursor: pointer; font-weight: 600;
+        }
+        .btn-filter-reset {
+          padding: 0.6rem 1.25rem; background: rgba(255,255,255,0.05); color: var(--text-dim);
+          border: 1px solid var(--border); border-radius: var(--radius-md); cursor: pointer;
+        }
+        .btn-filter-apply:hover { opacity: 0.9; }
+        
+        .pagination-wrapper {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 1rem 1.5rem;
+          margin-top: 2rem;
+          border-radius: var(--radius-md);
+        }
+        .pagination-btn {
+          padding: 0.6rem 1.25rem;
+          background: rgba(255,255,255,0.05);
+          border: 1px solid var(--border);
+          color: white;
+          border-radius: var(--radius-md);
+          cursor: pointer;
+          font-size: 0.85rem;
+          transition: var(--transition);
+        }
+        .pagination-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        .pagination-btn:not(:disabled):hover { background: rgba(255,255,255,0.1); }
+
+        .pagination-numbers { display: flex; gap: 0.5rem; align-items: center; }
+        .pagination-num {
+          width: 36px;
+          height: 36px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: transparent;
+          border: 1px solid transparent;
+          color: var(--text-dim);
+          border-radius: var(--radius-sm);
+          cursor: pointer;
+          font-size: 0.9rem;
+          transition: var(--transition);
+        }
+        .pagination-num.active {
+          background: var(--primary);
+          color: white;
+          border-color: var(--primary);
+          box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+        .pagination-num:not(.active):hover { border-color: var(--border); color: white; }
+        .pagination-ellipsis { color: var(--text-dim); padding: 0 0.5rem; }
+
+        /* Fetch Results Styling ... kept as is ... */
+` + `
         .fetch-results { padding: 1rem 0; }
         .result-header { text-align: center; margin-bottom: 2rem; }
         .result-icon-success { 
