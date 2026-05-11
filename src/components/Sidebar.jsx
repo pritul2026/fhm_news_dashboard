@@ -6,7 +6,8 @@ import {
   Megaphone, 
   MessageSquare, 
   LogOut,
-  Flame
+  Flame,
+  Hash
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import './Sidebar.css';
@@ -21,6 +22,7 @@ const Sidebar = () => {
     { name: 'Blogs', icon: <FileText size={20} />, path: '/blogs' },
     { name: 'Ads Management', icon: <Megaphone size={20} />, path: '/ads' },
     { name: 'Contacts', icon: <MessageSquare size={20} />, path: '/contacts' },
+    { name: 'Categories', icon: <Hash size={20} />, path: '/categories' },
   ];
 
   const handleLogout = () => {

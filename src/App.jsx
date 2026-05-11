@@ -6,6 +6,7 @@ import NewsFeed from './pages/NewsFeed';
 import Blogs from './pages/Blogs';
 import Ads from './pages/Ads';
 import Contacts from './pages/Contacts';
+import Categories from './pages/Categories';
 import Sidebar from './components/Sidebar';
 import Topbar from './components/Topbar';
 
@@ -35,6 +36,7 @@ function App() {
                   <Route path="/blogs" element={<Blogs />} />
                   <Route path="/ads" element={<Ads />} />
                   <Route path="/contacts" element={<Contacts />} />
+                  <Route path="/categories" element={<Categories />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </div>

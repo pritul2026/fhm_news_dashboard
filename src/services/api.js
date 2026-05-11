@@ -20,6 +20,7 @@ export const feedService = {
   fetchCustom: (data) => api.post('/feed/fetch', data),
   triggerRefresh: (pages = 5) => api.post(`/feed/refresh/?pages=${pages}`),
   deleteBySlug: (slug) => api.delete(`/feed/slug/${slug}/`),
+  deleteCategory: (name) => api.delete(`/feed/category/${name}?confirm=yes`),
 };
 
 // Blog APIs

@@ -683,7 +683,7 @@ const NewsFeed = () => {
           border: 1px solid var(--border); border-radius: var(--radius-md); cursor: pointer;
         }
         .btn-filter-apply:hover { opacity: 0.9; }
-        
+
         .pagination-wrapper {
           display: flex;
           justify-content: space-between;
