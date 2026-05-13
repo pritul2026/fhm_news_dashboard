@@ -21,6 +21,7 @@ export const feedService = {
   triggerRefresh: (pages = 5) => api.post(`/feed/refresh/?pages=${pages}`),
   deleteBySlug: (slug) => api.delete(`/feed/slug/${slug}/`),
   deleteCategory: (name) => api.delete(`/feed/category/${name}?confirm=yes`),
+  deleteByDate: (startDate, endDate) => api.delete(`/feed/delete-by-date?start_date=${startDate}&end_date=${endDate}&confirm=yes`),
 };
 
 // Blog APIs

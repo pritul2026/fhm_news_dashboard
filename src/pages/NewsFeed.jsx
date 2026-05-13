@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, RefreshCw, AlertCircle, Send, X } from 'lucide-react';
+import { Plus, RefreshCw, AlertCircle, Send, X, Trash2, Calendar } from 'lucide-react';
 import { feedService } from '../services/api';
 import DataTable from '../components/DataTable';
 import { toast } from 'react-toastify';
@@ -16,6 +16,13 @@ const NewsFeed = () => {
   const [editingSlug, setEditingSlug] = useState('');
   const [categoriesList, setCategoriesList] = useState(['all']);
   
+  // Bulk Delete State
+  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+  const [bulkDeleteDates, setBulkDeleteDates] = useState({ start: '', end: '' });
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [bulkDeleteResult, setBulkDeleteResult] = useState(null);
+  const [showBulkConfirm, setShowBulkConfirm] = useState(false);
+
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -198,6 +205,32 @@ const NewsFeed = () => {
     }
   };
 
+  const handleBulkDelete = async (e) => {
+    e.preventDefault();
+    if (!bulkDeleteDates.start || !bulkDeleteDates.end) {
+      toast.warning('Please select both start and end dates');
+      return;
+    }
+
+    if (!showBulkConfirm) {
+      setShowBulkConfirm(true);
+      return;
+    }
+
+    setIsBulkDeleting(true);
+    try {
+      const response = await feedService.deleteByDate(bulkDeleteDates.start, bulkDeleteDates.end);
+      setBulkDeleteResult(response.data);
+      toast.success('News articles deleted successfully');
+      fetchNews();
+    } catch (error) {
+      toast.error('Failed to delete news articles');
+    } finally {
+      setIsBulkDeleting(false);
+      setShowBulkConfirm(false);
+    }
+  };
+
   const handleRefresh = async () => {
     toast.info('Syncing feed...');
     try {
@@ -257,6 +290,14 @@ const NewsFeed = () => {
           <p>Manage and monitor all incoming news articles.</p>
         </div>
         <div className="header-actions">
+          <button 
+            onClick={() => setIsBulkDeleteModalOpen(true)} 
+            className="refresh-btn" 
+            style={{ background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.2)', color: '#ef4444' }}
+          >
+            <Trash2 size={16} />
+            <span>Bulk Delete</span>
+          </button>
           <button onClick={() => setIsFetchModalOpen(true)} className="refresh-btn" style={{ background: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.2)', color: '#10b981' }}>
             <Send size={16} />
             <span>Fetch from API</span>
@@ -626,6 +667,124 @@ const NewsFeed = () => {
                 onClick={() => {
                   setIsFetchModalOpen(false);
                   setFetchResult(null);
+                }} 
+                className="btn-submit"
+                style={{ width: '100%', justifyContent: 'center' }}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Bulk Delete by Date Modal */}
+      <Modal
+        isOpen={isBulkDeleteModalOpen}
+        onClose={() => {
+          setIsBulkDeleteModalOpen(false);
+          setBulkDeleteResult(null);
+          setShowBulkConfirm(false);
+        }}
+        title="Bulk Delete News by Date"
+        size="small"
+      >
+        {!bulkDeleteResult ? (
+          <form onSubmit={handleBulkDelete} className="modal-form">
+            {!showBulkConfirm ? (
+              <>
+                <div className="alert-box" style={{ background: 'rgba(239, 68, 68, 0.08)', borderColor: 'rgba(239, 68, 68, 0.2)', color: '#ef4444' }}>
+                  <AlertCircle size={15} />
+                  <span>Select a date range to wipe out old news articles.</span>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group form-group-full">
+                    <label>Start Date</label>
+                    <input
+                      type="date"
+                      value={bulkDeleteDates.start}
+                      onChange={(e) => setBulkDeleteDates({ ...bulkDeleteDates, start: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="form-group form-group-full">
+                    <label>End Date</label>
+                    <input
+                      type="date"
+                      value={bulkDeleteDates.end}
+                      onChange={(e) => setBulkDeleteDates({ ...bulkDeleteDates, end: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="modal-footer" style={{ padding: '1.25rem 0 0 0', background: 'transparent', border: 'none' }}>
+                  <button type="button" onClick={() => setIsBulkDeleteModalOpen(false)} className="btn-cancel">Cancel</button>
+                  <button type="submit" className="btn-submit" style={{ background: '#ef4444' }}>
+                    <Trash2 size={15} />
+                    <span>Proceed to Delete</span>
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="delete-confirm-content animate-fade-in">
+                <div className="delete-warning-icon">
+                  <AlertCircle size={32} />
+                </div>
+                <h3>Final Confirmation</h3>
+                <p>
+                  You are about to delete news from <strong>{bulkDeleteDates.start}</strong> to <strong>{bulkDeleteDates.end}</strong>.
+                  This action is <strong>irreversible</strong>.
+                </p>
+                <div className="modal-footer" style={{ marginTop: '2rem', padding: 0, background: 'transparent', border: 'none' }}>
+                  <button type="button" onClick={() => setShowBulkConfirm(false)} className="btn-cancel">Back</button>
+                  <button 
+                    type="submit" 
+                    disabled={isBulkDeleting} 
+                    className="btn-submit" 
+                    style={{ background: '#ef4444', boxShadow: '0 10px 20px -5px rgba(239, 68, 68, 0.4)' }}
+                  >
+                    <span>{isBulkDeleting ? 'Deleting...' : 'Yes, Delete Everything'}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </form>
+        ) : (
+          <div className="fetch-results animate-fade-in">
+            <div className="result-header">
+              <div className="result-icon-success" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>
+                <Trash2 size={32} />
+              </div>
+              <h3>Bulk Deletion Successful</h3>
+              <p>{bulkDeleteResult.message}</p>
+              <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: 'var(--text-dim)' }}>
+                Range: <strong>{bulkDeleteResult.date_range}</strong>
+              </div>
+            </div>
+
+            <div className="result-stats-grid">
+              <div className="res-stat-card">
+                <span>Main DB</span>
+                <h4 style={{ color: '#ef4444' }}>{bulkDeleteResult.deleted_from_main}</h4>
+              </div>
+              <div className="res-stat-card">
+                <span>Scrap DB</span>
+                <h4 style={{ color: '#f59e0b' }}>{bulkDeleteResult.deleted_from_scrap}</h4>
+              </div>
+              <div className="res-stat-card">
+                <span>Total Deleted</span>
+                <h4 style={{ fontWeight: 800 }}>{bulkDeleteResult.total_deleted}</h4>
+              </div>
+            </div>
+
+            <div className="modal-footer" style={{ padding: '1.5rem 0 0 0', background: 'transparent', border: 'none' }}>
+              <button 
+                type="button" 
+                onClick={() => {
+                  setIsBulkDeleteModalOpen(false);
+                  setBulkDeleteResult(null);
                 }} 
                 className="btn-submit"
                 style={{ width: '100%', justifyContent: 'center' }}
